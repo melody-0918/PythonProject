@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}投資策略回測{% endblock %}</title>
+
+  <style>
+    body {
+      font-family: Arial, "Microsoft JhengHei", sans-serif;
+      margin: 0;
+      background: #f6f7fb;
+      color: #1f2937;
+      line-height: 1.6;
+    }
+    header {
+      background: #111827;
+      color: #fff;
+      padding: 16px 24px;
+    }
+    .container {
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    label {
+      display: block;          /* 讓標題獨佔一行 */
+      font-weight: bold;       /* 讓標題變粗體 */
+      color: #374151;          /* 稍微加深顏色 */
+      margin-bottom: 4px;      /* 和下方的輸入框保持一點距離 */
+    }
+    input, select, button {  /* 新增 select 讓下拉選單也套用好看的樣式 */
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;         /* 修改：把輸入框稍微加高一點 */
+      margin-top: 8px;
+      margin-bottom: 20px;   /* 新增：將下方的元素推開，減少壅擠感 */
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      font-size: 16px;       /* 新增：確保字體夠大好點擊 */
+    }
+    button {
+      background: #2563eb;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 14px;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;  /* 修改：從 14px 改為 24px，把左右兩個輸入框推開 */
+    }
+    @media (max-width: 720px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin: 12px auto 0 auto;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+    }
+    .muted { color: #6b7280; }
+    .stats {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+    .stats th, .stats td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #eef2f7;
+      text-align: left;
+    }
+    .stats th {
+      background: #f3f4f6;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h2 style="margin:0;">台股定期定額 vs 單筆回測</h2>
+    <div class="muted" style="margin-top:6px;">輸入參數後即可比較兩種策略的期末資產與報酬率</div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</body>
+</html>

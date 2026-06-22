@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block title %}回測結果{% endblock %}
+
+{% block content %}
+  {% if error %}
+    <div class="error">
+      <strong>發生錯誤：</strong>
+      <div style="margin-top:6px;">{{ error }}</div>
+    </div>
+    <a href="{{ url_for('index') }}" style="text-decoration:none; color:#2563eb; font-weight:bold;">
+      回到輸入頁
+    </a>
+  {% else %}
+    <h3>回測結果</h3>
+
+    <p class="muted">
+      投資組合：{{ symbol }}<br>
+      對標指數：台灣大盤<br>
+      期間：{{ start_year }} - {{ end_year }}<br>
+      每月總投入：{{ "{:,.0f}".format(monthly_invest) }}
+    </p>
+
+    <table class="stats">
+      <thead>
+        <tr>
+          <th>策略</th>
+          <th>最終資產</th>
+          <th>總報酬率</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>策略 A：投資組合 (平均分散定額)</td>
+          <td>{{ "{:,.0f}".format(strategy_a_final_asset) }}</td>
+          <td>{{ "%.2f"|format(strategy_a_return * 100) }}%</td>
+        </tr>
+        <tr>
+          <td>策略 B：台灣大盤 (首月單筆投入)</td>
+          <td>{{ "{:,.0f}".format(strategy_b_final_asset) }}</td>
+          <td>{{ "%.2f"|format(strategy_b_return * 100) }}%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr style="margin:18px 0; border:0; border-top:1px solid #eef2f7;" />
+    <hr style="margin:24px 0; border:0; border-top:1px solid #eef2f7;" />
+    
+    <h4>投資組合總持股明細</h4>
+    <table class="stats">
+      <thead>
+        <tr>
+          <th>標的代號</th>
+          <th>累積股數 (張數)</th>
+          <th>均價成本</th>
+          <th>總成本</th>
+          <th>最新市價</th>
+          <th>目前總市值</th>
+          <th>未實現損益</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in portfolio_summary %}
+        <tr>
+          <td><strong>{{ item.symbol }}</strong></td>
+          <td>{{ "{:,.0f}".format(item.shares) }} 股<br><span class="muted">({{ "{:,.3f}".format(item.lots) }} 張)</span></td>
+          <td>{{ "{:,.2f}".format(item.avg_cost) }}</td>
+          <td>{{ "{:,.0f}".format(item.cost) }}</td>
+          <td>{{ "{:,.2f}".format(item.current_price) }}</td>
+          <td>{{ "{:,.0f}".format(item.market_value) }}</td>
+          {# 台股習慣：正數(賺錢)顯示紅色，負數(賠錢)顯示綠色 #}
+          <td style="color: {% if item.pl > 0 %}#dc2626{% elif item.pl < 0 %}#16a34a{% else %}#374151{% endif %}; font-weight:bold;">
+            {{ "{:,.0f}".format(item.pl) }} ({{ "{:,.0f}".format(item.pl_pct) }}%)
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+
+      {% set total_cost = portfolio_summary | map(attribute='cost') | sum %}
+      {% set total_mkt = portfolio_summary | map(attribute='market_value') | sum %}
+      {% set total_pl = portfolio_summary | map(attribute='pl') | sum %}
+      {% set total_pl_pct = (total_pl / total_cost * 100) if total_cost > 0 else 0 %}
+      
+      <tfoot>
+        <tr style="background-color: #e5e7eb; font-weight: bold;">
+          <td colspan="2" style="text-align: right;">驗證總計 (對比策略A)：</td>
+          <td>-</td> 
+          
+          <td>{{ "{:,.0f}".format(total_cost) }}</td> 
+          
+          <td>-</td> 
+          
+          <td>{{ "{:,.0f}".format(total_mkt) }}</td>
+          <td style="color: {% if total_pl > 0 %}#dc2626{% elif total_pl < 0 %}#16a34a{% else %}#374151{% endif %};">
+            {{ "{:,.0f}".format(total_pl) }} ({{ "{:,.2f}".format(total_pl_pct) }}%)
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <h4 style="margin-top:24px;">每月扣款與批次損益追蹤</h4>
+    <p class="muted">點擊下方各標的展開，查看從回測起始日至今，每個月扣款買進的單位數與當前真實損益。</p>
+    
+    {% for sym, details in portfolio_details.items() %}
+    <details style="margin-bottom: 12px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+      <summary style="font-weight: bold; cursor: pointer; color: #2563eb; outline: none;">
+        展開 {{ sym }} 每月扣款明細 (共 {{ details|length }} 筆)
+      </summary>
+      <div style="margin-top: 12px; max-height: 400px; overflow-y: auto; border-top: 1px dashed #d1d5db; padding-top: 12px;">
+        <table class="stats" style="font-size: 0.9em; margin-top: 0;">
+          <thead>
+            <tr>
+              <th>扣款日期</th>
+              <th>當時買入價</th>
+              <th>買入股數</th>
+              <th>投入成本</th>
+              <th>該批目前市值</th>
+              <th>該批損益</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for tx in details %}
+            <tr>
+              <td>{{ tx.date }}</td>
+              <td>{{ "{:,.2f}".format(tx.buy_price) }}</td>
+              <td>{{ "{:,.0f}".format(tx.shares) }} 股</td>
+              <td>{{ "{:,.0f}".format(tx.cost) }}</td>
+              <td>{{ "{:,.0f}".format(tx.current_value) }}</td>
+              <td style="color: {% if tx.pl > 0 %}#dc2626{% elif tx.pl < 0 %}#16a34a{% else %}#374151{% endif %};">
+                {{ "{:,.0f}".format(tx.pl) }} ({{ "{:,.2f}".format(tx.pl_pct) }}%)
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+
+          {% set sum_shares = details | map(attribute='shares') | sum %}
+          {% set sum_cost = details | map(attribute='cost') | sum %}
+          {% set sum_mkt = details | map(attribute='current_value') | sum %}
+          {% set sum_pl = details | map(attribute='pl') | sum %}
+          {% set sum_pl_pct = (sum_pl / sum_cost * 100) if sum_cost > 0 else 0 %}
+          
+          <tfoot>
+            <tr style="background-color: #f3f4f6; font-weight: bold;">
+              <td colspan="2" style="text-align: right;">本檔明細加總：</td>
+              <td>{{ "{:,.0f}".format(sum_shares) }} 股</td>
+              <td>{{ "{:,.0f}".format(sum_cost) }}</td>
+              <td>{{ "{:,.0f}".format(sum_mkt) }}</td>
+              <td style="color: {% if sum_pl > 0 %}#dc2626{% elif sum_pl < 0 %}#16a34a{% else %}#374151{% endif %};">
+                {{ "{:,.0f}".format(sum_pl) }} ({{ "{:,.0f}".format(sum_pl_pct) }}%)
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </details>
+    {% endfor %}
+
+    <h4>資產成長曲線對比圖與年度績效比較圖</h4>
+    <img src="{{ img_url }}" alt="資產成長曲線對比圖" />
+    <div class="muted" style="margin-top:8px; text-align:center;">
+      圖表已依你本次輸入的參數更新
+    </div>
+
+    <h4>績效對決分析</h4>
+
+    {% set a_pct = strategy_a_return * 100 %}
+    {% set b_pct = strategy_b_return * 100 %}
+    {% set return_diff_pct = (strategy_a_return - strategy_b_return) * 100 %}
+
+    {% if strategy_a_final_asset > strategy_b_final_asset %}
+    <p>
+        <strong>挑戰成功！</strong>你的投資組合（策略 A）在本次期間成功擊敗了台灣大盤（策略 B）。
+        組合報酬率約 <strong>{{ "{:,.2f}".format(a_pct) }}%</strong>，
+        大盤報酬率約 <strong>{{ "{:,.2f}".format(b_pct) }}%</strong>，
+        勝出大盤 <strong>{{ "{:,.2f}".format(return_diff_pct) }}%</strong>！
+    </p>
+    <p class="muted">
+        這表示你挑選的股票組合具備強大的成長潛力，且透過定期定額有效分散了進場風險。
+    </p>
+    {% elif strategy_b_final_asset > strategy_a_final_asset %}
+    <p>
+        <strong>大盤勝出。</strong>在本次期間，台灣大盤（策略 B）的表現優於你的投資組合（策略 A）。
+        大盤報酬率約 <strong>{{ "{:,.2f}".format(b_pct) }}%</strong>，
+        組合報酬率約 <strong>{{ "{:,.2f}".format(a_pct) }}%</strong>，
+        落後大盤 <strong>{{ "{:,.2f}".format(return_diff_pct|abs) }}%</strong>。
+    </p>
+    <p class="muted">
+        這在大多頭市場很常見，因為大盤單筆投入在一開始就讓資金全額參與上漲。未來我們可以透過「年度績效分析」來看看你的組合是否在空頭年比較抗跌。
+    </p>
+    {% else %}
+    <p>
+        兩個策略在本次期間的期末資產幾乎相同，與大盤打成平手！
+    </p>
+    {% endif %}
+    <hr style="margin:18px 0; border:0; border-top:1px solid #eef2f7;" />
+    
+    <h4>空頭年抗跌分析（A vs B）</h4>
+    {% if bear_years %}
+      <p>我們特別拉出大盤下跌的「空頭年」來比對：</p>
+      <ul>
+      {% for item in bear_years %}
+        <li style="margin-bottom: 8px;">
+          <strong>{{ item.year }}年：</strong> 
+          大盤(B) 跌幅 <span style="color:green; font-weight:bold;">{{ "%.2f"|format(item.twii) }}%</span>，
+          你的組合(A) 績效為 <strong>{{ "%.2f"|format(item.port) }}%</strong>。
+          {% if item.port > item.twii %}
+            <span style="color:red; font-weight:bold;">(抗跌成功！)</span>
+          {% else %}
+            <span style="color:green;">(組合跌幅較深)</span>
+          {% endif %}
+        </li>
+      {% endfor %}
+      </ul>
+      <p class="muted">註：台股習慣以綠色表示下跌、紅色表示上漲。</p>
+    {% else %}
+      <p>在這段期間內，大盤沒有出現明顯的年度下跌。</p>
+    {% endif %}
+  <hr style="margin:24px 0; border:0; border-top:1px solid #eef2f7;" />
+
+    <div style="background-color: #f8fafc; border-left: 4px solid #3b82f6; padding: 16px 20px; border-radius: 0 8px 8px 0;">
+      <h4 style="margin-top: 0; color: #1e3a8a;">💡 綜合結論與投資啟示</h4>
+      
+      {% set a_pct = strategy_a_return * 100 %}
+      {% set b_pct = strategy_b_return * 100 %}
+
+      <p><strong>1. 整體績效評估：</strong><br>
+      {% if strategy_a_final_asset > strategy_b_final_asset %}
+        綜合來看，<strong>策略 A（投資組合）整體的投資績效優於策略 B（台灣大盤）</strong>。這表示您挑選的標的具備強大的成長動能，為您帶來了超越市場平均的超額報酬。
+      {% else %}
+        綜合來看，<strong>策略 B（台灣大盤）整體的投資績效優於策略 A（投資組合）</strong>。這顯示在本次回測期間，直接投資大盤能獲得最穩健且優渥的市場報酬。<br><br>
+        
+        <span style="color: #991b1b; font-weight: bold;">⚠️ 拖累組合績效的標的：</span><br>
+        檢視您的投資組合，以下標的的總報酬率低於大盤 ({{ "%.2f"|format(b_pct) }}%)，是造成策略 A 整體落後的主要原因：
+        <ul style="margin-top: 4px; margin-bottom: 8px; color: #4b5563;">
+        {% set ns_lag = namespace(found=false) %}
+        {% for item in portfolio_summary %}
+          {% if item.pl_pct < b_pct %}
+            {% set ns_lag.found = true %}
+            <li><strong>{{ item.symbol }}</strong>：總報酬率僅 {{ "%.2f"|format(item.pl_pct) }}%</li>
+          {% endif %}
+        {% endfor %}
+        {% if not ns_lag.found %}
+          <li>無特定落後標的（可能是因定期定額初期資金運用率較單筆投入低所致）</li>
+        {% endif %}
+        </ul>
+      {% endif %}
+      </p>
+
+      <p><strong>2. 空頭市場特性分析：</strong><br>
+      {% if strategy_a_final_asset > strategy_b_final_asset %}
+        {% if bear_years %}
+          {% set ns = namespace(lose_count=0) %}
+          {% for item in bear_years %}
+            {% if item.port < item.twii %}
+              {% set ns.lose_count = ns.lose_count + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if ns.lose_count > 0 %}
+            在金融市場中，<strong>原則上波動較大的標的，在「多頭年」時表現會比大盤更亮眼，但在「空頭年」遇到市場回檔時，往往也會跌得更深。</strong><br><br>
+            以本次回測的空頭年為例，您的投資組合有 <strong>{{ ns.lose_count }}</strong> 次跌幅深於大盤，印證了高波動的特性。但策略 A 採用了「定期定額」的機制，雖然空頭時帳面跌幅深，卻能趁機「在低檔累積大量便宜股數」。這正是策略 A 最終能夠在多頭反彈時，爆發出優異績效的關鍵原因！
+          {% else %}
+            進一步分析發現，您的投資組合不僅在整體績效上勝出，在遇到大盤下跌的「空頭年」時，表現也<strong>全數優於大盤</strong>！<br><br>
+            這顯示您所選擇的投資標的具有<strong>「進可攻、退可守」</strong>的防禦與成長雙重優勢，在任何市場環境下都能穩定勝出，是一個極為優秀的投資組合！
+          {% endif %}
+        {% else %}
+          在金融市場中，<strong>原則上波動較大的標的，在「多頭年」時表現會比大盤更亮眼，但在「空頭年」遇到市場回檔時，往往也會跌得更深。</strong><br><br>不過在此回測期間內皆為多頭市場，您的投資組合展現了極強的爆發力，順利擊敗大盤。
+        {% endif %}
+      {% else %}
+        {# 💎 新增：當 B 贏 A 時的多空頭智能診斷 #}
+        {% if bear_years %}
+          {% set ns = namespace(win_count=0) %}
+          {% for item in bear_years %}
+            {% if item.port > item.twii %}
+              {% set ns.win_count = ns.win_count + 1 %}
+            {% endif %}
+          {% endfor %}
+          
+          {% if ns.win_count > 0 %}
+            進一步分析發現，在遇到市場下跌的「空頭年」中，策略 A 有 <strong>{{ ns.win_count }}</strong> 次表現優於大盤。<br>
+            這顯示您的投資組合<strong>在空頭時較為抗跌</strong>，具備良好的防禦屬性；但代價是<strong>在多頭年時表現不佳、缺乏爆發力</strong>，導致最終總結算時整體績效輸給了大盤。
+          {% else %}
+            進一步分析發現，策略 A <strong>不論在多頭年或空頭年，表現都比大盤（策略 B）還要差</strong>。<br>
+            這顯示該投資組合的績效明顯落後於市場平均。<strong>💡 投資建議：</strong>建議您可以重新檢視持股，適度增加「成長型」的標的，以提升整體的資產增長潛力。
+          {% endif %}
+        {% else %}
+            在此回測期間內皆為多頭市場，而策略 A 未能超越大盤，顯示該組合可能缺乏足夠的成長動能。建議可適度增加「成長型」標的。
+        {% endif %}
+      {% endif %}
+      </p>
+    </div>
+
+    <div style="margin-top:24px; display: flex; gap: 16px; align-items: center;">
+      <a href="{{ ppt_url }}" target="_blank" style="text-decoration:none; background:#10b981; color:white; padding:12px 24px; border-radius:8px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        下載 PPT 分析報告
+      </a>
+      <a href="{{ url_for('index') }}" style="text-decoration:none; color:#2563eb; font-weight:bold;">
+        進行下一次回測
+      </a>
+    </div>
+
+  {% endif %}
+{% endblock %}
